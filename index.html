@@ -2,25 +2,8 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <!-- PWA: viewport с поддержкой чёлки / Dynamic Island -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Книжный клуб</title>
-
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="./manifest.json">
-
-    <!-- iOS PWA: убрать браузерный chrome -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Книги">
-
-    <!-- iOS иконки (Safari не читает manifest для иконок!) -->
-    <link rel="apple-touch-icon" href="./icon-180.png">
-
-    <!-- Android / theme color -->
-    <meta name="theme-color" content="#0f0f23">
-    <meta name="mobile-web-app-capable" content="yes">
-
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
         :root {
@@ -33,25 +16,6 @@
             --grade-3: #f1c40f;
             --grade-2: #e67e22;
             --grade-1: #e74c3c;
-
-            /* Безопасные зоны для Dynamic Island и Home Bar */
-            --safe-top: env(safe-area-inset-top, 0px);
-            --safe-bottom: env(safe-area-inset-bottom, 0px);
-            --safe-left: env(safe-area-inset-left, 0px);
-            --safe-right: env(safe-area-inset-right, 0px);
-        }
-
-        * {
-            box-sizing: border-box;
-            /* Убрать синюю подсветку при тапе на iOS */
-            -webkit-tap-highlight-color: transparent;
-            -webkit-touch-callout: none;
-        }
-
-        html, body {
-            height: 100%;
-            /* Запретить "резиновый" отскок страницы */
-            overscroll-behavior: none;
         }
 
         body {
@@ -59,8 +23,7 @@
             background-color: var(--bg-color);
             color: var(--text-color);
             margin: 0;
-            /* Отступы с учётом Safe Area */
-            padding: calc(var(--safe-top) + 15px) calc(var(--safe-right) + 15px) calc(var(--safe-bottom) + 15px) calc(var(--safe-left) + 15px);
+            padding: 15px;
             line-height: 1.5;
             -webkit-font-smoothing: antialiased;
         }
@@ -73,243 +36,278 @@
         h1 {
             font-size: 28px;
             font-weight: 700;
-            margin: 10px 0 20px;
-            letter-spacing: -0.5px;
+            margin: 0 0 20px 0;
+            text-align: center;
         }
 
-        .controls {
+        .nav-links {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .nav-links a {
+            color: #555;
+            text-decoration: none;
+            font-size: 14px;
+            border-bottom: 1px dashed #ccc;
+        }
+
+        .nav-links a:hover {
+            color: #000;
+            border-bottom-color: #000;
+        }
+
+        .filters {
             display: flex;
             flex-direction: column;
-            gap: 15px;
-        }
-
-        input, select {
-            padding: 16px;
+            gap: 12px;
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
             border: 1px solid var(--border-color);
-            border-radius: 12px;
-            font-size: 16px; /* Не меньше 16px — иначе iOS зумит поле при фокусе */
+        }
+
+        .search-wrapper {
+            position: relative;
             width: 100%;
-            background: #fdfdfd;
-            appearance: none;
-            -webkit-appearance: none;
-            background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23666%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E");
-            background-repeat: no-repeat;
-            background-position: right 12px center;
-            background-size: 16px;
-            color: var(--text-color);
         }
 
-        input {
-            background-image: none;
-        }
-
-        /* Убрать outline на iOS при фокусе */
-        input:focus, select:focus {
+        .search-wrapper input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 10px 12px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
             outline: none;
-            border-color: #aaa;
+            font-family: inherit;
         }
 
-        .filter-group {
-            display: flex;
-            flex-direction: column;
+        .filter-controls {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
             gap: 10px;
         }
 
-        .book-list {
+        .filter-controls select {
+            padding: 8px 10px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            background-color: #fff;
+            font-family: inherit;
+            outline: none;
+        }
+
+        .books-list {
             max-width: 600px;
             margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
         }
 
-        .book-item {
+        .book-card {
             border-bottom: 1px solid var(--border-color);
-            padding: 20px 0;
-            cursor: pointer;
+            padding-bottom: 20px;
         }
 
-        .book-main {
+        .book-card:last-child {
+            border-bottom: none;
+        }
+
+        .book-header {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            /* Увеличить зону тапа */
-            min-height: 44px;
-        }
-
-        .book-info {
-            flex: 1;
-            padding-right: 10px;
+            align-items: flex-start;
+            gap: 15px;
+            margin-bottom: 6px;
         }
 
         .book-title {
+            font-size: 18px;
             font-weight: 600;
-            font-size: 19px;
             margin: 0;
+            line-height: 1.3;
+        }
+
+        .book-rating {
+            font-size: 14px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 4px;
+            color: #fff;
+            white-space: nowrap;
         }
 
         .book-author {
-            color: #666;
-            font-size: 15px;
-            margin: 5px 0 0 0;
-        }
-
-        .avg-grade {
-            font-weight: 700;
-            font-size: 20px;
-            min-width: 40px;
-            text-align: right;
-        }
-
-        .details {
-            display: none;
-            margin-top: 15px;
-            background: #f9f9f9;
-            padding: 15px;
-            border-radius: 12px;
-        }
-
-        .details.active { display: block; }
-
-        .participant-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid #eee;
-            font-size: 15px;
-        }
-
-        .participant-row:last-child { border: none; }
-
-        .color-5 { color: var(--grade-5); }
-        .color-4 { color: var(--grade-4); }
-        .color-3 { color: var(--grade-3); }
-        .color-2 { color: var(--grade-2); }
-        .color-1 { color: var(--grade-1); }
-
-        /* Оффлайн-баннер */
-        #offline-banner {
-            display: none;
-            background: #f1c40f;
-            color: #111;
-            text-align: center;
-            padding: 8px 15px;
             font-size: 14px;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            margin: calc(-1 * var(--safe-top) - 15px) -15px 15px;
+            color: #555;
+            margin: 0 0 12px 0;
+        }
+
+        .grades-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .grade-badge {
+            font-size: 12px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .grade-badge span {
+            font-weight: 600;
+        }
+
+        .loader {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+            font-size: 16px;
+        }
+
+        @media (max-width: 480px) {
+            .filter-controls {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
 
-<div id="offline-banner">⚠️ Нет соединения — показаны кэшированные данные</div>
-
 <header>
     <h1>Книжный клуб</h1>
-    <div class="controls">
-        <input type="text" id="searchInput" placeholder="Поиск произведения или автора">
-        
-        <select id="sortSelect">
-            <option value="oldest">Сортировка: Сначала старые</option>
-            <option value="newest">Сортировка: Сначала новые</option>
-            <option value="rating-desc">Рейтинг: Сначала высокие</option>
-            <option value="rating-asc">Рейтинг: Сначала низкие</option>
-        </select>
-
-        <div class="filter-group">
-            <select id="userFilter">
-                <option value="all">Все участники</option>
+    <div class="nav-links">
+        <a href="stats.html">Посмотреть статистику клуба →</a>
+    </div>
+    <div class="filters">
+        <div class="search-wrapper">
+            <input type="text" id="search" placeholder="Поиск по названию или автору...">
+        </div>
+        <div class="filter-controls">
+            <select id="user-filter">
+                <option value="all">Все читатели</option>
+                <option value="Антон">Антон</option>
+                <option value="Андрей">Андрей</option>
+                <option value="Аня">Аня</option>
+                <option value="Лена В.">Лена В.</option>
+                <option value="Лена Б.">Лена Б.</option>
+                <option value="Дима">Дима</option>
+                <option value="Надя">Надя</option>
             </select>
-            <select id="readStatus">
-                <option value="read">Прочитано участником</option>
-                <option value="unread">Не прочитано участником</option>
+            <select id="status-filter">
+                <option value="read">Прочитано</option>
+                <option value="unread">Не прочитано</option>
+            </select>
+            <select id="sort-filter">
+                <option value="newest">Сначала новые</option>
+                <option value="oldest">Сначала старые</option>
+                <option value="rating-desc">По рейтингу (высший)</option>
+                <option value="rating-asc">По рейтингу (низший)</option>
             </select>
         </div>
     </div>
 </header>
 
-<div class="book-list" id="bookList"></div>
+<main class="books-list" id="books-container">
+    <div class="loader">Загрузка книг...</div>
+</main>
 
 <script>
-    let booksData = [];
-    let participants = [];
+    // Прямая ссылка на Google Таблицу (CSV-выгрузка) с защитой от кэширования браузера
+    const BASE_SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQlkY8pc9H77_X6JsGVqosVfcpKBbSpdVZGEA-VkHD3dZiY4iHsYOlzqVQCZzPFgT76MHpwMusVn-Do/pub?gid=774296432&single=true&output=csv";
+    const SPREADSHEET_URL = BASE_SPREADSHEET_URL + "&_=" + new Date().getTime();
 
-    function getGradeClass(val) {
-        if (!val) return '';
-        const score = parseFloat(val.toString().replace(',', '.'));
-        if (score >= 4.8) return 'color-5';
-        if (score >= 3.8) return 'color-4';
-        if (score >= 2.8) return 'color-3';
-        if (score >= 1.8) return 'color-2';
-        return 'color-1';
+    let allBooks = [];
+    const usersList = ['Антон', 'Андрей', 'Аня', 'Лена В.', 'Лена Б.', 'Дима', 'Надя'];
+
+    // Определение цвета для общей оценки книги
+    function getRatingColor(ratingStr) {
+        const rating = parseFloat(ratingStr.replace(',', '.')) || 0;
+        if (rating >= 4.5) return 'var(--grade-5)';
+        if (rating >= 3.8) return 'var(--grade-4)';
+        if (rating >= 3.0) return 'var(--grade-3)';
+        if (rating >= 2.0) return 'var(--grade-2)';
+        return 'var(--grade-1)';
     }
 
-    async function loadData() {
-        const response = await fetch('./books_data.csv');
-        const csvText = await response.text();
-        
-        Papa.parse(csvText, {
+    // Загрузка данных
+    function loadData() {
+        Papa.parse(SPREADSHEET_URL, {
+            download: true,
             header: true,
-            skipEmptyLines: true,
+            skipEmptyLines: true, // Игнорировать пустые строки в конце таблицы
             complete: function(results) {
-                booksData = results.data.map((item, index) => ({...item, originalIndex: index}));
-                participants = results.meta.fields.slice(3);
-                
-                const userSelect = document.getElementById('userFilter');
-                participants.forEach(name => {
-                    const opt = document.createElement('option');
-                    opt.value = name;
-                    opt.textContent = name;
-                    userSelect.appendChild(opt);
+                // Добавляем оригинальный индекс для сохранения хронологии порядка добавления
+                allBooks = results.data.map((book, index) => {
+                    return { ...book, originalIndex: index };
                 });
-                
-                renderBooks(booksData);
+                applyFilters();
+            },
+            error: function(err) {
+                document.getElementById('books-container').innerHTML = `<div class="loader" style="color:var(--grade-1)">Ошибка загрузки данных из Google Таблиц.</div>`;
+                console.error(err);
             }
         });
     }
 
-    function renderBooks(data) {
-        const list = document.getElementById('bookList');
-        list.innerHTML = '';
+    // Отрисовка списка книг
+    function renderBooks(books) {
+        const container = document.getElementById('books-container');
+        container.innerHTML = '';
 
-        data.forEach((book, idx) => {
-            const avg = book['Оценка'] || '—';
-            const item = document.createElement('div');
-            item.className = 'book-item';
-            item.innerHTML = `
-                <div class="book-main" onclick="toggleDetails(${idx})">
-                    <div class="book-info">
-                        <p class="book-title">${book['Наименование']}</p>
-                        <p class="book-author">${book['Автор']}</p>
-                    </div>
-                    <div class="avg-grade ${getGradeClass(avg)}">${avg}</div>
+        if (books.length === 0) {
+            container.innerHTML = '<div class="loader">Книги не найдены</div>';
+            return;
+        }
+
+        books.forEach(book => {
+            const card = document.createElement('div');
+            card.className = 'book-card';
+
+            // Собираем оценки читателей
+            let gradesHtml = '';
+            usersList.forEach(user => {
+                const grade = book[user];
+                if (grade && grade.trim() !== "" && grade !== "0") {
+                    gradesHtml += `<div class="grade-badge">${user}: <span>${grade}</span></div>`;
+                }
+            });
+
+            const ratingStr = book['Оценка'] || '0,0';
+            const badgeColor = getRatingColor(ratingStr);
+
+            card.innerHTML = `
+                <div class="book-header">
+                    <h2 class="book-title">${book['Наименование'] || 'Без названия'}</h2>
+                    <span class="book-rating" style="background-color: ${badgeColor}">${ratingStr}</span>
                 </div>
-                <div class="details" id="details-${idx}">
-                    ${participants.map(p => `
-                        <div class="participant-row">
-                            <span>${p}</span>
-                            <span class="${getGradeClass(book[p])}">${book[p] || '—'}</span>
-                        </div>
-                    `).join('')}
+                <p class="book-author">${book['Автор'] || 'Автор не указан'}</p>
+                <div class="grades-grid">
+                    ${gradesHtml || '<div class="grade-badge" style="color:#888; font-style:italic;">Никто еще не прочитал</div>'}
                 </div>
             `;
-            list.appendChild(item);
+            container.appendChild(card);
         });
     }
 
-    function toggleDetails(idx) {
-        const el = document.getElementById(`details-${idx}`);
-        el.classList.toggle('active');
-    }
-
+    // Логика фильтрации и сортировки
     function applyFilters() {
-        const search = document.getElementById('searchInput').value.toLowerCase();
-        const sort = document.getElementById('sortSelect').value;
-        const user = document.getElementById('userFilter').value;
-        const status = document.getElementById('readStatus').value;
+        const search = document.getElementById('search').value.toLowerCase().trim();
+        const user = document.getElementById('user-filter').value;
+        const status = document.getElementById('status-filter').value;
+        const sort = document.getElementById('sort-filter').value;
 
-        let filtered = booksData.filter(book => {
-            const matchSearch = book['Наименование'].toLowerCase().includes(search) || 
-                                book['Автор'].toLowerCase().includes(search);
+        let filtered = allBooks.filter(book => {
+            const title = (book['Наименование'] || '').toLowerCase();
+            const author = (book['Автор'] || '').toLowerCase();
+            const matchSearch = title.includes(search) || author.includes(search);
+            
             let matchUser = true;
             if (user !== 'all') {
                 const hasRead = book[user] && book[user].trim() !== "" && book[user] !== "0";
@@ -318,41 +316,35 @@
             return matchSearch && matchUser;
         });
 
+        // Логика сортировки
         if (sort === 'oldest') {
             filtered.sort((a, b) => a.originalIndex - b.originalIndex);
         } else if (sort === 'newest') {
             filtered.sort((a, b) => b.originalIndex - a.originalIndex);
         } else if (sort === 'rating-desc') {
-            filtered.sort((a, b) => parseFloat(b['Оценка'].replace(',', '.')) - parseFloat(a['Оценка'].replace(',', '.')));
+            filtered.sort((a, b) => {
+                const rateA = parseFloat(a['Оценка'].toString().replace(',', '.')) || 0;
+                const rateB = parseFloat(b['Оценка'].toString().replace(',', '.')) || 0;
+                return rateB - rateA;
+            });
         } else if (sort === 'rating-asc') {
-            filtered.sort((a, b) => parseFloat(a['Оценка'].replace(',', '.')) - parseFloat(b['Оценка'].replace(',', '.')));
+            filtered.sort((a, b) => {
+                const rateA = parseFloat(a['Оценка'].toString().replace(',', '.')) || 0;
+                const rateB = parseFloat(b['Оценка'].toString().replace(',', '.')) || 0;
+                return rateA - rateB;
+            });
         }
 
         renderBooks(filtered);
     }
 
-    document.querySelectorAll('input, select').forEach(el => {
+    // Слушатели событий интерфейса
+    document.getElementById('search').addEventListener('input', applyFilters);
+    document.querySelectorAll('select').forEach(el => {
         el.addEventListener('change', applyFilters);
-        el.addEventListener('input', applyFilters);
     });
 
-    // Оффлайн-баннер
-    window.addEventListener('offline', () => {
-        document.getElementById('offline-banner').style.display = 'block';
-    });
-    window.addEventListener('online', () => {
-        document.getElementById('offline-banner').style.display = 'none';
-    });
-
-    // Регистрация Service Worker
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js')
-                .then(reg => console.log('SW registered:', reg.scope))
-                .catch(err => console.warn('SW registration failed:', err));
-        });
-    }
-
+    // Стартовая инициализация
     loadData();
 </script>
 
