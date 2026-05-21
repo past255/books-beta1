@@ -11,6 +11,7 @@
             --text-color: #111111;
             --border-color: #eeeeee;
             --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --error-color: #e74c3c;
         }
 
         body {
@@ -94,6 +95,13 @@
             font-style: italic;
         }
 
+        .loader {
+            text-align: center;
+            padding: 30px;
+            color: #888;
+            font-size: 15px;
+        }
+
         /* Адаптив под узкие экраны */
         @media (max-width: 480px) {
             th:nth-child(4), td:nth-child(4) { display: none; } /* Скрываем автора на мобилках */
@@ -125,82 +133,94 @@
             </tr>
         </thead>
         <tbody id="statsBody">
-            </tbody>
+            <tr>
+                <td colspan="4" class="loader">Загрузка статистики...</td>
+            </tr>
+        </tbody>
     </table>
 </div>
 
 <script>
-    async function loadStats() {
-        try {
-            const response = await fetch('books_data.csv');
-            const csvText = await response.text();
-            
-            Papa.parse(csvText, {
-                header: true,
-                skipEmptyLines: true,
-                complete: function(results) {
-                    const books = results.data;
-                    const participants = results.meta.fields.slice(3);
-                    const tbody = document.getElementById('statsBody');
+    // Прямая ссылка на Google Таблицу (CSV-выгрузка) с защитой от кэширования браузера
+    const BASE_SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQlkY8pc9H77_X6JsGVqosVfcpKBbSpdVZGEA-VkHD3dZiY4iHsYOlzqVQCZzPFgT76MHpwMusVn-Do/pub?gid=774296432&single=true&output=csv";
+    const SPREADSHEET_URL = BASE_SPREADSHEET_URL + "&_=" + new Date().getTime();
+
+    function loadStats() {
+        const tbody = document.getElementById('statsBody');
+
+        Papa.parse(SPREADSHEET_URL, {
+            download: true,
+            header: true,
+            skipEmptyLines: true, // Игнорировать пустые строки
+            complete: function(results) {
+                const books = results.data;
+                
+                // Динамически получаем имена участников (все колонки после первых трех: Наименование, Автор, Оценка)
+                const participants = results.meta.fields.slice(3);
+                
+                let statsData = [];
+
+                participants.forEach(p => {
+                    const readBooks = books.filter(b => b[p] && b[p].trim() !== "" && b[p] !== "0");
+                    const count = readBooks.length;
                     
-                    let statsData = [];
+                    // Средний балл
+                    const ratings = readBooks
+                        .map(b => parseFloat(b[p].toString().replace(',', '.')))
+                        .filter(n => !isNaN(n));
+                    const avg = ratings.length > 0 
+                        ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1) 
+                        : '0.0';
 
-                    participants.forEach(p => {
-                        const readBooks = books.filter(b => b[p] && b[p].trim() !== "" && b[p] !== "0");
-                        const count = readBooks.length;
-                        
-                        // Средний балл
-                        const ratings = readBooks
-                            .map(b => parseFloat(b[p].toString().replace(',', '.')))
-                            .filter(n => !isNaN(n));
-                        const avg = ratings.length > 0 
-                            ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1) 
-                            : '0.0';
+                    // Любимый автор
+                    let favAuthor = '—';
+                    if (readBooks.length > 0) {
+                        const authorStats = {};
+                        readBooks.forEach(b => {
+                            if (!b['Автор']) return;
+                            const author = b['Автор'].trim();
+                            const rate = parseFloat(b[p].toString().replace(',', '.')) || 0;
+                            if (!authorStats[author]) authorStats[author] = { sum: 0, count: 0 };
+                            authorStats[author].sum += rate;
+                            authorStats[author].count += 1;
+                        });
 
-                        // Любимый автор
-                        let favAuthor = '—';
-                        if (readBooks.length > 0) {
-                            const authorStats = {};
-                            readBooks.forEach(b => {
-                                const author = b['Автор'].trim();
-                                const rate = parseFloat(b[p].toString().replace(',', '.')) || 0;
-                                if (!authorStats[author]) authorStats[author] = { sum: 0, count: 0 };
-                                authorStats[author].sum += rate;
-                                authorStats[author].count += 1;
-                            });
-
-                            let maxAvg = -1;
-                            for (const author in authorStats) {
-                                const authorAvg = authorStats[author].sum / authorStats[author].count;
-                                if (authorAvg > maxAvg) {
-                                    maxAvg = authorAvg;
-                                    favAuthor = author;
-                                }
+                        let maxAvg = -1;
+                        for (const author in authorStats) {
+                            const authorAvg = authorStats[author].sum / authorStats[author].count;
+                            if (authorAvg > maxAvg) {
+                                maxAvg = authorAvg;
+                                favAuthor = author;
                             }
                         }
+                    }
 
-                        statsData.push({ name: p, count, avg, favAuthor });
-                    });
+                    statsData.push({ name: p, count, avg, favAuthor });
+                });
 
-                    // Сортировка: сначала те, у кого больше книг
-                    statsData.sort((a, b) => b.count - a.count);
+                // Сортировка: сначала те, у кого больше книг
+                statsData.sort((a, b) => b.count - a.count);
 
-                    // Отрисовка
-                    statsData.forEach(item => {
-                        const row = document.createElement('tr');
-                        row.innerHTML = `
-                            <td class="user-name">${item.name}</td>
-                            <td class="stat-val">${item.count}</td>
-                            <td class="stat-val">${item.avg}</td>
-                            <td class="fav-author">${item.favAuthor}</td>
-                        `;
-                        tbody.appendChild(row);
-                    });
-                }
-            });
-        } catch (e) {
-            console.error("Ошибка загрузки:", e);
-        }
+                // Очищаем лоадер перед отрисовкой
+                tbody.innerHTML = '';
+
+                // Отрисовка
+                statsData.forEach(item => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="user-name">${item.name}</td>
+                        <td class="stat-val">${item.count}</td>
+                        <td class="stat-val">${item.avg}</td>
+                        <td class="fav-author">${item.favAuthor}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            },
+            error: function(err) {
+                tbody.innerHTML = `<tr><td colspan="4" class="loader" style="color: var(--error-color)">Ошибка загрузки данных из Google Таблиц.</td></tr>`;
+                console.error("Ошибка парсинга:", err);
+            }
+        });
     }
 
     loadStats();
