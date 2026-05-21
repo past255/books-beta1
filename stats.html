@@ -19,13 +19,13 @@
             background-color: var(--bg-color);
             color: var(--text-color);
             margin: 0;
-            padding: 10px; /* Уменьшили отступы для мобилок */
+            padding: 10px;
             line-height: 1.5;
             -webkit-font-smoothing: antialiased;
         }
 
         .container {
-            max-width: 800px;
+            max-width: 600px; /* Уменьшили максимальную ширину, так как колонок стало меньше */
             margin: 0 auto;
         }
 
@@ -42,7 +42,7 @@
         }
 
         h1 {
-            font-size: 24px; /* Чуть меньше заголовок */
+            font-size: 24px;
             font-weight: 700;
             margin: 0 0 5px;
             letter-spacing: -0.5px;
@@ -52,7 +52,7 @@
         table {
             width: 100%;
             border-collapse: collapse;
-            table-layout: fixed; /* Фиксированная ширина колонок */
+            table-layout: fixed;
             margin-top: 10px;
         }
 
@@ -70,14 +70,13 @@
             padding: 12px 5px;
             border-bottom: 1px solid var(--border-color);
             font-size: 14px;
-            word-wrap: break-word; /* Чтобы длинные имена не ломали верстку */
+            word-wrap: break-word;
         }
 
-        /* Ширина колонок */
-        th:nth-child(1), td:nth-child(1) { width: 40%; } /* Участник */
-        th:nth-child(2), td:nth-child(2) { width: 18%; text-align: center; } /* Книг */
-        th:nth-child(3), td:nth-child(3) { width: 22%; text-align: center; } /* Ср. балл */
-        th:nth-child(4), td:nth-child(4) { width: 20%; } /* Автор */
+        /* Новое распределение ширины колонок (в сумме 100%) */
+        th:nth-child(1), td:nth-child(1) { width: 50%; } /* Участник */
+        th:nth-child(2), td:nth-child(2) { width: 22%; text-align: center; } /* Книг */
+        th:nth-child(3), td:nth-child(3) { width: 28%; text-align: center; } /* Ср. балл */
 
         .user-name {
             font-weight: 600;
@@ -89,12 +88,6 @@
             color: #111;
         }
 
-        .fav-author {
-            font-size: 12px;
-            color: #777;
-            font-style: italic;
-        }
-
         .loader {
             text-align: center;
             padding: 30px;
@@ -104,11 +97,6 @@
 
         /* Адаптив под узкие экраны */
         @media (max-width: 480px) {
-            th:nth-child(4), td:nth-child(4) { display: none; } /* Скрываем автора на мобилках */
-            th:nth-child(1), td:nth-child(1) { width: 50%; }
-            th:nth-child(2), td:nth-child(2) { width: 20%; }
-            th:nth-child(3), td:nth-child(3) { width: 30%; }
-            
             h1 { font-size: 22px; }
             td { padding: 10px 4px; font-size: 13px; }
         }
@@ -120,28 +108,25 @@
     <header>
         <a href="index.html" class="back-btn">← Назад</a>
         <h1>Статистика</h1>
-        <p style="color: #888; font-size: 12px;">Если вы с мобильного, поверните экран, чтобы увидеть всю таблицу.</p>
     </header>
 
     <table id="statsTable">
         <thead>
             <tr>
                 <th>Участник</th>
-                <th>Книг</th>
-                <th>Балл</th>
-                <th>Автор</th>
+                <th style="text-align: center;">Книг</th>
+                <th style="text-align: center;">Балл</th>
             </tr>
         </thead>
         <tbody id="statsBody">
             <tr>
-                <td colspan="4" class="loader">Загрузка статистики...</td>
+                <td colspan="3" class="loader">Загрузка статистики...</td>
             </tr>
         </tbody>
     </table>
 </div>
 
 <script>
-    // Прямая ссылка на Google Таблицу (CSV-выгрузка) с защитой от кэширования браузера
     const BASE_SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQlkY8pc9H77_X6JsGVqosVfcpKBbSpdVZGEA-VkHD3dZiY4iHsYOlzqVQCZzPFgT76MHpwMusVn-Do/pub?gid=774296432&single=true&output=csv";
     const SPREADSHEET_URL = BASE_SPREADSHEET_URL + "&_=" + new Date().getTime();
 
@@ -151,11 +136,9 @@
         Papa.parse(SPREADSHEET_URL, {
             download: true,
             header: true,
-            skipEmptyLines: true, // Игнорировать пустые строки
+            skipEmptyLines: true,
             complete: function(results) {
                 const books = results.data;
-                
-                // Динамически получаем имена участников (все колонки после первых трех: Наименование, Автор, Оценка)
                 const participants = results.meta.fields.slice(3);
                 
                 let statsData = [];
@@ -172,52 +155,27 @@
                         ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1) 
                         : '0.0';
 
-                    // Любимый автор
-                    let favAuthor = '—';
-                    if (readBooks.length > 0) {
-                        const authorStats = {};
-                        readBooks.forEach(b => {
-                            if (!b['Автор']) return;
-                            const author = b['Автор'].trim();
-                            const rate = parseFloat(b[p].toString().replace(',', '.')) || 0;
-                            if (!authorStats[author]) authorStats[author] = { sum: 0, count: 0 };
-                            authorStats[author].sum += rate;
-                            authorStats[author].count += 1;
-                        });
-
-                        let maxAvg = -1;
-                        for (const author in authorStats) {
-                            const authorAvg = authorStats[author].sum / authorStats[author].count;
-                            if (authorAvg > maxAvg) {
-                                maxAvg = authorAvg;
-                                favAuthor = author;
-                            }
-                        }
-                    }
-
-                    statsData.push({ name: p, count, avg, favAuthor });
+                    statsData.push({ name: p, count, avg });
                 });
 
                 // Сортировка: сначала те, у кого больше книг
                 statsData.sort((a, b) => b.count - a.count);
 
-                // Очищаем лоадер перед отрисовкой
                 tbody.innerHTML = '';
 
-                // Отрисовка
+                // Отрисовка трех колонок
                 statsData.forEach(item => {
                     const row = document.createElement('tr');
                     row.innerHTML = `
                         <td class="user-name">${item.name}</td>
-                        <td class="stat-val">${item.count}</td>
-                        <td class="stat-val">${item.avg}</td>
-                        <td class="fav-author">${item.favAuthor}</td>
+                        <td class="stat-val" style="text-align: center;">${item.count}</td>
+                        <td class="stat-val" style="text-align: center;">${item.avg}</td>
                     `;
                     tbody.appendChild(row);
                 });
             },
             error: function(err) {
-                tbody.innerHTML = `<tr><td colspan="4" class="loader" style="color: var(--error-color)">Ошибка загрузки данных из Google Таблиц.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="3" class="loader" style="color: var(--error-color)">Ошибка загрузки данных из Google Таблиц.</td></tr>`;
                 console.error("Ошибка парсинга:", err);
             }
         });
