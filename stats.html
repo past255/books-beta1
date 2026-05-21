@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Статистика клуба</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #111111;
+            --border-color: #eeeeee;
+            --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 10px; /* Уменьшили отступы для мобилок */
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 20px;
+        }
+
+        .back-btn {
+            display: inline-block;
+            margin-bottom: 15px;
+            color: #888;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        h1 {
+            font-size: 24px; /* Чуть меньше заголовок */
+            font-weight: 700;
+            margin: 0 0 5px;
+            letter-spacing: -0.5px;
+        }
+
+        /* Оптимизация таблицы */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed; /* Фиксированная ширина колонок */
+            margin-top: 10px;
+        }
+
+        th {
+            text-align: left;
+            padding: 10px 5px;
+            border-bottom: 2px solid var(--border-color);
+            color: #666;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            padding: 12px 5px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 14px;
+            word-wrap: break-word; /* Чтобы длинные имена не ломали верстку */
+        }
+
+        /* Ширина колонок */
+        th:nth-child(1), td:nth-child(1) { width: 40%; } /* Участник */
+        th:nth-child(2), td:nth-child(2) { width: 18%; text-align: center; } /* Книг */
+        th:nth-child(3), td:nth-child(3) { width: 22%; text-align: center; } /* Ср. балл */
+        th:nth-child(4), td:nth-child(4) { width: 20%; } /* Автор */
+
+        .user-name {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .stat-val {
+            font-weight: 700;
+            color: #111;
+        }
+
+        .fav-author {
+            font-size: 12px;
+            color: #777;
+            font-style: italic;
+        }
+
+        /* Адаптив под узкие экраны */
+        @media (max-width: 480px) {
+            th:nth-child(4), td:nth-child(4) { display: none; } /* Скрываем автора на мобилках */
+            th:nth-child(1), td:nth-child(1) { width: 50%; }
+            th:nth-child(2), td:nth-child(2) { width: 20%; }
+            th:nth-child(3), td:nth-child(3) { width: 30%; }
+            
+            h1 { font-size: 22px; }
+            td { padding: 10px 4px; font-size: 13px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <a href="index.html" class="back-btn">← Назад</a>
+        <h1>Статистика</h1>
+        <p style="color: #888; font-size: 12px;">Если вы с мобильного, поверните экран, чтобы увидеть всю таблицу.</p>
+    </header>
+
+    <table id="statsTable">
+        <thead>
+            <tr>
+                <th>Участник</th>
+                <th>Книг</th>
+                <th>Балл</th>
+                <th>Автор</th>
+            </tr>
+        </thead>
+        <tbody id="statsBody">
+            </tbody>
+    </table>
+</div>
+
+<script>
+    async function loadStats() {
+        try {
+            const response = await fetch('books_data.csv');
+            const csvText = await response.text();
+            
+            Papa.parse(csvText, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    const books = results.data;
+                    const participants = results.meta.fields.slice(3);
+                    const tbody = document.getElementById('statsBody');
+                    
+                    let statsData = [];
+
+                    participants.forEach(p => {
+                        const readBooks = books.filter(b => b[p] && b[p].trim() !== "" && b[p] !== "0");
+                        const count = readBooks.length;
+                        
+                        // Средний балл
+                        const ratings = readBooks
+                            .map(b => parseFloat(b[p].toString().replace(',', '.')))
+                            .filter(n => !isNaN(n));
+                        const avg = ratings.length > 0 
+                            ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1) 
+                            : '0.0';
+
+                        // Любимый автор
+                        let favAuthor = '—';
+                        if (readBooks.length > 0) {
+                            const authorStats = {};
+                            readBooks.forEach(b => {
+                                const author = b['Автор'].trim();
+                                const rate = parseFloat(b[p].toString().replace(',', '.')) || 0;
+                                if (!authorStats[author]) authorStats[author] = { sum: 0, count: 0 };
+                                authorStats[author].sum += rate;
+                                authorStats[author].count += 1;
+                            });
+
+                            let maxAvg = -1;
+                            for (const author in authorStats) {
+                                const authorAvg = authorStats[author].sum / authorStats[author].count;
+                                if (authorAvg > maxAvg) {
+                                    maxAvg = authorAvg;
+                                    favAuthor = author;
+                                }
+                            }
+                        }
+
+                        statsData.push({ name: p, count, avg, favAuthor });
+                    });
+
+                    // Сортировка: сначала те, у кого больше книг
+                    statsData.sort((a, b) => b.count - a.count);
+
+                    // Отрисовка
+                    statsData.forEach(item => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td class="user-name">${item.name}</td>
+                            <td class="stat-val">${item.count}</td>
+                            <td class="stat-val">${item.avg}</td>
+                            <td class="fav-author">${item.favAuthor}</td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                }
+            });
+        } catch (e) {
+            console.error("Ошибка загрузки:", e);
+        }
+    }
+
+    loadStats();
+</script>
+
+</body>
+</html>
